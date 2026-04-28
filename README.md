@@ -103,7 +103,8 @@ Document - это и контекст для State и коллега для Medi
 using System;
 using System.Collections.Generic;
 
-// ========== STATE ==========
+// STATE
+
 public interface IDocumentState
 {
     void Print(Document document);
@@ -117,7 +118,7 @@ public class NewState : IDocumentState
 {
     public void Print(Document document)
     {
-        Console.WriteLine("[State: New] Документ ещё не в очереди. Сначала добавьте его.");
+        Console.WriteLine("[State: New] Документ ещё не в очереди. Сначала добавьте его в очередь.");
     }
 
     public void AddToQueue(Document document)
@@ -128,12 +129,12 @@ public class NewState : IDocumentState
 
     public void CompletePrinting(Document document)
     {
-        Console.WriteLine("[State: New] Нельзя завершить печать - документ не печатается.");
+        Console.WriteLine("[State: New] Нельзя завершить печать, документ не печатается.");
     }
 
     public void FailPrinting(Document document)
     {
-        Console.WriteLine("[State: New] Нельзя зафиксировать ошибку - документ не печатается.");
+        Console.WriteLine("[State: New] Нельзя зафиксировать ошибку, документ не печатается.");
     }
 
     public void Reset(Document document)
@@ -146,7 +147,7 @@ public class PrintingState : IDocumentState
 {
     public void Print(Document document)
     {
-        Console.WriteLine("[State: Printing] Документ уже печатается.");
+        Console.WriteLine("[State: Printing] Документ уже печатается, повторная печать невозможна.");
     }
 
     public void AddToQueue(Document document)
@@ -156,13 +157,13 @@ public class PrintingState : IDocumentState
 
     public void CompletePrinting(Document document)
     {
-        Console.WriteLine("[State: Printing] Печать успешно завершена -> Done.");
+        Console.WriteLine("[State: Printing] Печать успешно завершена -> переходим в Done.");
         document.SetState(new DoneState());
     }
 
     public void FailPrinting(Document document)
     {
-        Console.WriteLine("[State: Printing] Ошибка печати -> Error.");
+        Console.WriteLine("[State: Printing] Ошибка во время печати -> переходим в Error.");
         document.SetState(new ErrorState());
     }
 
@@ -176,7 +177,7 @@ public class DoneState : IDocumentState
 {
     public void Print(Document document)
     {
-        Console.WriteLine("[State: Done] Документ уже напечатан.");
+        Console.WriteLine("[State: Done] Документ уже напечатан, печать невозможна.");
     }
 
     public void AddToQueue(Document document)
@@ -204,17 +205,17 @@ public class ErrorState : IDocumentState
 {
     public void Print(Document document)
     {
-        Console.WriteLine("[State: Error] Печать невозможна. Сначала сбросьте документ.");
+        Console.WriteLine("[State: Error] Печать невозможна из-за ошибки. Сначала сбросьте документ (Reset).");
     }
 
     public void AddToQueue(Document document)
     {
-        Console.WriteLine("[State: Error] Нельзя добавить в очередь. Сначала сбросьте документ.");
+        Console.WriteLine("[State: Error] Нельзя добавить в очередь документ с ошибкой. Сбросьте его.");
     }
 
     public void CompletePrinting(Document document)
     {
-        Console.WriteLine("[State: Error] Нельзя завершить печать - документ в ошибке.");
+        Console.WriteLine("[State: Error] Нельзя завершить печать, документ в ошибке.");
     }
 
     public void FailPrinting(Document document)
@@ -224,12 +225,13 @@ public class ErrorState : IDocumentState
 
     public void Reset(Document document)
     {
-        Console.WriteLine("[State: Error] Сброс документа -> New.");
+        Console.WriteLine("[State: Error] Сброс документа -> переход в New.");
         document.SetState(new NewState());
     }
 }
 
-// ========== MEDIATOR ==========
+// MEDIATOR
+
 public interface IMediator
 {
     void Notify(Colleague sender, string ev, Document document = null);
@@ -238,8 +240,13 @@ public interface IMediator
 public abstract class Colleague
 {
     public IMediator Mediator { get; private set; }
-    public void SetMediator(IMediator mediator) => Mediator = mediator;
+
+    public void SetMediator(IMediator mediator)
+    {
+        Mediator = mediator;
+    }
 }
+
 
 public class Document : Colleague
 {
@@ -254,6 +261,7 @@ public class Document : Colleague
     }
 
     public void SetState(IDocumentState state) => _state = state;
+
     public void Print() => _state.Print(this);
     public void AddToQueue() => _state.AddToQueue(this);
     public void CompletePrinting() => _state.CompletePrinting(this);
@@ -267,10 +275,10 @@ public class Printer : Colleague
 
     public void StartPrint(Document document)
     {
-        Console.WriteLine($"[Принтер] Начало печати '{document.Title}'...");
+        Console.WriteLine($"[Принтер] Начало физической печати '{document.Title}'...");
         if (SimulateFailure)
         {
-            Console.WriteLine("[Принтер] ОШИБКА!");
+            Console.WriteLine("[Принтер] ПРОИЗОШЛА ОШИБКА!");
             SimulateFailure = false;
             Mediator.Notify(this, "PrintFailed", document);
         }
@@ -289,11 +297,15 @@ public class PrintQueue : Colleague
     public void EnqueueItem(Document document)
     {
         _queue.Enqueue(document);
-        Console.WriteLine($"[Очередь] Документ '{document.Title}' добавлен (всего {_queue.Count}).");
+        Console.WriteLine($"[Очередь] Документ '{document.Title}' добавлен в очередь (всего {_queue.Count}).");
         Mediator.Notify(this, "Enqueued", document);
     }
 
-    public Document DequeueItem() => _queue.Dequeue();
+    public Document DequeueItem()
+    {
+        return _queue.Dequeue();
+    }
+
     public bool IsEmpty => _queue.Count == 0;
 }
 
@@ -309,19 +321,19 @@ public class Dispatcher : Colleague
 {
     public void AddDocument(Document document)
     {
-        Console.WriteLine($"[Диспетчер] Команда: добавить '{document.Title}'.");
+        Console.WriteLine($"[Диспетчер] Команда: добавить документ '{document.Title}'.");
         Mediator.Notify(this, "DispatchAdd", document);
     }
 
     public void CommandProcessQueue()
     {
-        Console.WriteLine("[Диспетчер] Команда: обработать очередь.");
+        Console.WriteLine("[Диспетчер] Команда: обработать очередь печати.");
         Mediator.Notify(this, "ProcessQueue");
     }
 
     public void ResetDocument(Document document)
     {
-        Console.WriteLine($"[Диспетчер] Команда: сбросить '{document.Title}'.");
+        Console.WriteLine($"[Диспетчер] Команда: сбросить документ '{document.Title}'.");
         Mediator.Notify(this, "ResetDocument", document);
     }
 }
@@ -353,52 +365,62 @@ public class PrintSystemMediator : IMediator
             case "DispatchAdd":
                 document?.AddToQueue();
                 break;
+
             case "AddToQueue":
-                if (document != null) _queue.EnqueueItem(document);
+                if (document != null)
+                    _queue.EnqueueItem(document);
                 break;
+
             case "Enqueued":
                 _logger.WriteMessage($"Документ '{document?.Title}' помещён в очередь.");
                 break;
+
             case "ProcessQueue":
                 if (_queue.IsEmpty)
                 {
-                    _logger.WriteMessage("Очередь пуста.");
+                    _logger.WriteMessage("Очередь печати пуста.");
                     return;
                 }
                 var nextDoc = _queue.DequeueItem();
-                _logger.WriteMessage($"Начинаем обработку '{nextDoc.Title}'.");
+                _logger.WriteMessage($"Начинаем обработку документа '{nextDoc.Title}' из очереди.");
                 nextDoc.Print();
                 break;
+
             case "RequestPrint":
-                _logger.WriteMessage($"Запрос на печать '{document?.Title}'.");
+                _logger.WriteMessage($"Получен запрос на печать документа '{document?.Title}'.");
                 document.SetState(new PrintingState());
                 _printer.StartPrint(document);
                 break;
+
             case "PrintSuccess":
-                _logger.WriteMessage($"Успешно напечатан '{document?.Title}'.");
+                _logger.WriteMessage($"Печать документа '{document?.Title}' прошла УСПЕШНО.");
                 document.CompletePrinting();
                 break;
+
             case "PrintFailed":
-                _logger.WriteMessage($"Ошибка печати '{document?.Title}'.");
+                _logger.WriteMessage($"Печать документа '{document?.Title}' завершилась ОШИБКОЙ.");
                 document.FailPrinting();
                 break;
+
             case "ResetDocument":
                 if (document != null)
                 {
-                    _logger.WriteMessage($"Сброс документа '{document.Title}'.");
+                    _logger.WriteMessage($"Запрошен сброс документа '{document.Title}'.");
                     document.Reset();
                 }
+                break;
+
+            default:
+                _logger.WriteMessage($"Неизвестное событие: {ev}");
                 break;
         }
     }
 }
 
-// ========== MAIN ==========
 class Program
 {
-    static void Main()
+    static void Main(string[] args)
     {
-        Console.WriteLine("=== СИСТЕМА ОЧЕРЕДИ ПЕЧАТИ ===\n");
 
         var printer = new Printer();
         var queue = new PrintQueue();
@@ -407,32 +429,36 @@ class Program
 
         var mediator = new PrintSystemMediator(printer, queue, logger, dispatcher);
 
-        var doc1 = new Document("Отчёт");
-        var doc2 = new Document("Договор");
+        var doc1 = new Document("Отчёт по продажам");
+        var doc2 = new Document("Договор поставки");
+        var doc3 = new Document("Презентация проекта");
+
         doc1.SetMediator(mediator);
         doc2.SetMediator(mediator);
+        doc3.SetMediator(mediator);
 
-        Console.WriteLine("\n--- Сценарий 1: Успешная печать ---");
+
+        Console.WriteLine("\n1: Успешная печать двух документов");
         dispatcher.AddDocument(doc1);
         dispatcher.AddDocument(doc2);
         dispatcher.CommandProcessQueue();
         dispatcher.CommandProcessQueue();
 
-        Console.WriteLine("\n--- Сценарий 2: Ошибка и восстановление ---");
-        var docErr = new Document("Контракт");
-        docErr.SetMediator(mediator);
-        dispatcher.AddDocument(docErr);
+        Console.WriteLine("\n2: Ошибка принтера при печати");
+        var docError = new Document("Важный контракт");
+        docError.SetMediator(mediator);
+        dispatcher.AddDocument(docError);
+
         printer.SimulateFailure = true;
         dispatcher.CommandProcessQueue();
 
-        Console.WriteLine("\n--- Сценарий 3: Сброс и повтор ---");
-        dispatcher.ResetDocument(docErr);
-        dispatcher.AddDocument(docErr);
+        Console.WriteLine("\n3: Восстановление после ошибки");
+        dispatcher.ResetDocument(docError);
+        dispatcher.AddDocument(docError);
         dispatcher.CommandProcessQueue();
 
-        Console.WriteLine("\n--- Сценарий 4: Готовый документ ---");
+        Console.WriteLine("\n4: Попытка печати уже напечатанного документа");
         doc1.AddToQueue();
 
-        Console.WriteLine("\n=== КОНЕЦ ===");
     }
 }
