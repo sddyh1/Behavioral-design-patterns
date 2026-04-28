@@ -177,7 +177,7 @@ public class Printer : Colleague
         if (SimulateFailure)
         {
             Console.WriteLine("[Принтер] ПРОИЗОШЛА ОШИБКА!");
-            SimulateFailure = false; // сброс флага для следующих заданий
+            SimulateFailure = false;
             Mediator.Notify(this, "PrintFailed", document);
         }
         else
@@ -319,7 +319,6 @@ class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine("=== СИСТЕМА УПРАВЛЕНИЯ ОЧЕРЕДЬЮ ПЕЧАТИ ===\n");
 
         var printer = new Printer();
         var queue = new PrintQueue();
@@ -337,13 +336,13 @@ class Program
         doc3.SetMediator(mediator);
 
 
-        Console.WriteLine("\n--- СЦЕНАРИЙ 1: Успешная печать двух документов ---");
+        Console.WriteLine("\n1: Успешная печать двух документов");
         dispatcher.AddDocument(doc1);
         dispatcher.AddDocument(doc2);
         dispatcher.CommandProcessQueue();
         dispatcher.CommandProcessQueue();
 
-        Console.WriteLine("\n--- СЦЕНАРИЙ 2: Ошибка принтера при печати ---");
+        Console.WriteLine("\n2: Ошибка принтера при печати");
         var docError = new Document("Важный контракт");
         docError.SetMediator(mediator);
         dispatcher.AddDocument(docError);
@@ -351,14 +350,13 @@ class Program
         printer.SimulateFailure = true;
         dispatcher.CommandProcessQueue();
 
-        Console.WriteLine("\n--- СЦЕНАРИЙ 3: Восстановление после ошибки ---");
+        Console.WriteLine("\n3: Восстановление после ошибки");
         dispatcher.ResetDocument(docError);
         dispatcher.AddDocument(docError);
         dispatcher.CommandProcessQueue();
 
-        Console.WriteLine("\n--- СЦЕНАРИЙ 4: Попытка печати уже напечатанного документа ---");
+        Console.WriteLine("\n4: Попытка печати уже напечатанного документа");
         doc1.AddToQueue();
 
-        Console.WriteLine("\n=== РАБОТА ПРОГРАММЫ ЗАВЕРШЕНА ===");
     }
 }
