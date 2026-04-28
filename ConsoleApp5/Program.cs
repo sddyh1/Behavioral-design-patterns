@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-// =========================== ПАТТЕРН STATE ===========================
+// STATE
 
 public interface IDocumentState
 {
@@ -128,7 +128,7 @@ public class ErrorState : IDocumentState
     }
 }
 
-// =========================== ПАТТЕРН MEDIATOR ===========================
+// MEDIATOR
 
 public interface IMediator
 {
@@ -145,7 +145,7 @@ public abstract class Colleague
     }
 }
 
-// КОНТЕКСТ STATE, также КОЛЛЕГА
+
 public class Document : Colleague
 {
     private IDocumentState _state;
@@ -160,7 +160,6 @@ public class Document : Colleague
 
     public void SetState(IDocumentState state) => _state = state;
 
-    // Делегирование текущему состоянию
     public void Print() => _state.Print(this);
     public void AddToQueue() => _state.AddToQueue(this);
     public void CompletePrinting() => _state.CompletePrinting(this);
@@ -168,7 +167,6 @@ public class Document : Colleague
     public void Reset() => _state.Reset(this);
 }
 
-// КОЛЛЕГА: Принтер
 public class Printer : Colleague
 {
     public bool SimulateFailure { get; set; } = false;
@@ -190,7 +188,6 @@ public class Printer : Colleague
     }
 }
 
-// КОЛЛЕГА: Очередь печати (FIFO)
 public class PrintQueue : Colleague
 {
     private Queue<Document> _queue = new Queue<Document>();
@@ -210,7 +207,6 @@ public class PrintQueue : Colleague
     public bool IsEmpty => _queue.Count == 0;
 }
 
-// КОЛЛЕГА: Логгер
 public class Logger : Colleague
 {
     public void WriteMessage(string message)
@@ -219,14 +215,11 @@ public class Logger : Colleague
     }
 }
 
-// КОЛЛЕГА: Диспетчер (UI)
 public class Dispatcher : Colleague
 {
     public void AddDocument(Document document)
     {
         Console.WriteLine($"[Диспетчер] Команда: добавить документ '{document.Title}'.");
-        // Диспетчер инициирует добавление через посредника (или можно вызвать document.AddToQueue())
-        // Здесь демонстрируется, что диспетчер тоже общается через посредника.
         Mediator.Notify(this, "DispatchAdd", document);
     }
 
@@ -243,7 +236,6 @@ public class Dispatcher : Colleague
     }
 }
 
-// КОНКРЕТНЫЙ ПОСРЕДНИК
 public class PrintSystemMediator : IMediator
 {
     private readonly Printer _printer;
@@ -258,7 +250,6 @@ public class PrintSystemMediator : IMediator
         _logger = logger;
         _dispatcher = dispatcher;
 
-        // Установка посредника для всех коллег
         _printer.SetMediator(this);
         _queue.SetMediator(this);
         _logger.SetMediator(this);
@@ -270,12 +261,10 @@ public class PrintSystemMediator : IMediator
         switch (ev)
         {
             case "DispatchAdd":
-                // Диспетчер просит добавить документ (вызываем метод документа)
                 document?.AddToQueue();
                 break;
 
             case "AddToQueue":
-                // Документ сам инициирует добавление в очередь (из состояния New)
                 if (document != null)
                     _queue.EnqueueItem(document);
                 break;
@@ -292,12 +281,10 @@ public class PrintSystemMediator : IMediator
                 }
                 var nextDoc = _queue.DequeueItem();
                 _logger.WriteMessage($"Начинаем обработку документа '{nextDoc.Title}' из очереди.");
-                // Важно: документ уже знает посредника (установлено при создании или сейчас)
-                nextDoc.Print(); // это вызовет у состояния New метод Print -> запрос к посреднику
+                nextDoc.Print();
                 break;
 
             case "RequestPrint":
-                // Запрос от документа (из состояния New) на начало печати
                 _logger.WriteMessage($"Получен запрос на печать документа '{document?.Title}'.");
                 document.SetState(new PrintingState());
                 _printer.StartPrint(document);
@@ -314,7 +301,6 @@ public class PrintSystemMediator : IMediator
                 break;
 
             case "ResetDocument":
-                // Диспетчер инициирует сброс документа
                 if (document != null)
                 {
                     _logger.WriteMessage($"Запрошен сброс документа '{document.Title}'.");
@@ -329,63 +315,49 @@ public class PrintSystemMediator : IMediator
     }
 }
 
-// =========================== ДЕМОНСТРАЦИЯ ===========================
 class Program
 {
     static void Main(string[] args)
     {
         Console.WriteLine("=== СИСТЕМА УПРАВЛЕНИЯ ОЧЕРЕДЬЮ ПЕЧАТИ ===\n");
 
-        // 1. Создание компонентов-коллег
         var printer = new Printer();
         var queue = new PrintQueue();
         var logger = new Logger();
         var dispatcher = new Dispatcher();
 
-        // 2. Создание посредника и связывание всех коллег
         var mediator = new PrintSystemMediator(printer, queue, logger, dispatcher);
 
-        // 3. Создание документов (они ещё не знают посредника)
         var doc1 = new Document("Отчёт по продажам");
         var doc2 = new Document("Договор поставки");
         var doc3 = new Document("Презентация проекта");
 
-        // Устанавливаем посредника для документов (они тоже коллеги)
         doc1.SetMediator(mediator);
         doc2.SetMediator(mediator);
         doc3.SetMediator(mediator);
 
-        // 4. Демонстрация сценариев
 
-        // Сценарий 1: Успешная печать нескольких документов
         Console.WriteLine("\n--- СЦЕНАРИЙ 1: Успешная печать двух документов ---");
         dispatcher.AddDocument(doc1);
         dispatcher.AddDocument(doc2);
-        dispatcher.CommandProcessQueue(); // печатает doc1
-        dispatcher.CommandProcessQueue(); // печатает doc2
+        dispatcher.CommandProcessQueue();
+        dispatcher.CommandProcessQueue();
 
-        // Сценарий 2: Ошибка принтера при печати конкретного документа
         Console.WriteLine("\n--- СЦЕНАРИЙ 2: Ошибка принтера при печати ---");
         var docError = new Document("Важный контракт");
         docError.SetMediator(mediator);
         dispatcher.AddDocument(docError);
 
-        // Имитируем поломку принтера перед тем, как начнётся печать этого документа
         printer.SimulateFailure = true;
-        dispatcher.CommandProcessQueue(); // попытка напечатать docError -> ошибка
+        dispatcher.CommandProcessQueue();
 
-        // Сценарий 3: Повторная печать документа после ошибки (сброс -> добавление -> печать)
         Console.WriteLine("\n--- СЦЕНАРИЙ 3: Восстановление после ошибки ---");
-        // Сброс документа из состояния Error в New
         dispatcher.ResetDocument(docError);
-        // Повторное добавление в очередь
         dispatcher.AddDocument(docError);
-        // Принтер уже исправен (флаг сброшен в методе StartPrint после ошибки)
-        dispatcher.CommandProcessQueue(); // теперь печатается успешно
+        dispatcher.CommandProcessQueue();
 
-        // Сценарий 4: Проверка финальных состояний (попытка повторной печати готового документа)
         Console.WriteLine("\n--- СЦЕНАРИЙ 4: Попытка печати уже напечатанного документа ---");
-        doc1.AddToQueue(); // документ в состоянии Done не должен добавиться в очередь
+        doc1.AddToQueue();
 
         Console.WriteLine("\n=== РАБОТА ПРОГРАММЫ ЗАВЕРШЕНА ===");
     }
